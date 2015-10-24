@@ -1,0 +1,7 @@
+void main{
+	if(int i == 123){
+		i = 0;
+	}
+	else if(i <= 500)
+		i = 1;	
+}

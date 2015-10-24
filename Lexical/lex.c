@@ -1,0 +1,222 @@
+#include <ctype.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
+
+#define LENGTH 32	// maximum length for a word
+#define CHUNK 128
+#define TSIZE 256	// maximum size of symbol table
+
+// token values
+#define KEYWORD 1
+#define CONSTANT 2
+#define IDENTIFIER 3
+
+typedef struct
+{
+	char lexeme[LENGTH+1];
+	int token;
+}entry;
+
+entry symbol_table[TSIZE];
+int last_index = -1;
+unsigned int line_no = 0;
+char buffer[LENGTH+1];
+
+// prototypes
+char* inputStatement(FILE*, size_t, char);
+bool analyze(char*);
+void insert(char[],int);
+int lookup(char[]);
+
+bool is_identifier(char ch) {
+	return ((isalpha(ch)||ch=='_'||isdigit(ch)) ? true : false);
+}
+bool is_operator(char ch) {
+	return ((ch=='+'||ch=='-'||ch=='*'||ch=='/'||ch=='%') ? true : false);
+}
+
+FILE* inp = NULL;
+FILE* kw = NULL;
+
+int main(int argc, char* argv[])
+{	
+	// check for correct number of args
+    if (argc != 3)
+    {
+        printf("Usage: lex [keywords_file] [input_file]\n");
+        return 1;
+    }
+    char* keyword_file = argv[1];
+    char* input_file = argv[2];
+    
+    kw = fopen(keyword_file, "r");	    //open keywords file
+    inp = fopen(input_file, "r");		//open input file
+    if (kw == NULL || inp == NULL)
+    {
+        printf("Could not open files.\n");
+        return 1;
+    }    
+	// INIT: load keywords from argv[1]
+	int i;
+    while (fgets (buffer, LENGTH, kw)) {
+    	buffer[strcspn(buffer, "\n")] = 0;
+    	insert(buffer,KEYWORD);
+    }
+    fclose(kw);	    //close keywords file
+    
+	// read each statement and analyze
+	while(true) {
+		char* statement = inputStatement(inp,128,'\n');		// got one statement from the file
+		if(statement[0] == EOF)
+		{
+			free(statement);
+			break;
+		}
+		line_no++;
+		printf("%d %s\n", line_no,statement);
+		// call analyze
+		if(!analyze(statement))
+			printf("Unexpected lexeme at line %d: %s\n", line_no,statement);
+      	free(statement);
+	}
+	
+	fclose(inp);	// close input file
+	
+    return 0;
+}
+
+// read input from file (1 statement at a time)
+char* inputStatement(FILE* fp, size_t size, char delimiter)
+{
+    char* str;
+    int ch;
+    size_t len = 0;
+    str = realloc(NULL, sizeof(char) * size);	//size is start size
+    if(!str)
+    	return str;
+    	
+    while(EOF!=(ch=fgetc(fp)) && ch != delimiter){
+    	if(ch == '\t')
+    		continue;
+        str[len++]=ch;
+        if(len==size){
+            str = realloc(str, sizeof(char) * (size+=32));
+            if(!str)return str;
+        }
+    }
+    if(ch == EOF && len == 0)
+    {
+    	str[0] = EOF;
+    	return str;
+    }
+    str[len++]='\0';
+    return realloc(str, sizeof(char) * len);
+}
+// analyze input statement
+bool analyze(char* statement)
+{
+	if(statement[0] == '\0' || statement[0] == '#')
+		return true;		
+	int i, len = strlen(statement);	
+	for (i = 0; i < len; i += 1)
+	{
+		switch(statement[i]){
+			case ' ':
+			case '\t':
+			case ';':
+				continue;
+				break;
+			case '{':
+			case '}':
+			case '(':
+			case ')':
+				printf("bracket at %d:%d\n",line_no,i+1);
+				continue;
+				break;	
+			default:
+				break;
+		}
+		
+		if(statement[i] == '/' && statement[i+1] == '/'){
+			printf("Comment at line %d\n",line_no);
+			return true;
+		}
+		if(is_operator(statement[i])){
+			printf("Operator at %d:%d\n",line_no,i+1);
+			continue;
+		}
+		if(statement[i] == '=' ||  statement[i] == '!') {
+			if(statement[i+1] == '='){
+				printf("Relational Operator at %d:%d\n",line_no,i+1);
+				i++;
+			}
+			else
+				printf("Operator at %d:%d\n",line_no,i+1);
+			continue;
+		}
+		if(statement[i] == '<' || statement[i] == '>'){
+			if(statement[i+1] == '=')
+				i++;
+			printf("Relational Operator at %d:%d\n",line_no,i);
+			continue;
+		}	
+		// found number
+		else if(isdigit(statement[i])){
+			int j = 0;
+			do{
+				buffer[j] = statement[i];
+				j++;
+				i++;
+				if(isalpha(statement[i])){
+					printf("lexical error at %d:%d\n",line_no,i+1);
+					return;
+				}
+			}while(isdigit(statement[i]));
+			
+			buffer[j] = '\0'; i--;
+			printf("integer at %d:%d\n",line_no,i-j+2);
+			if(lookup(buffer) == -1){
+				insert(buffer,CONSTANT);
+			}
+			continue;
+		}
+		// found identifier
+		else if(isalpha(statement[i])){
+			int j = 0;
+			do{
+				buffer[j] = statement[i];
+				j++;
+				i++;
+			}while(is_identifier(statement[i]));
+			buffer[j] = '\0'; i--;
+			int t = lookup(buffer);
+			if(t == -1){
+				printf("identifier at %d:%d\n",line_no,i-j+2);
+				insert(buffer,IDENTIFIER);
+			}
+			else if(t == KEYWORD){
+				printf("keyword at %d:%d\n",line_no,i-j+2);
+			}
+			else if(t == IDENTIFIER){
+				printf("identifier at %d:%d\n",line_no,i-j+2);
+			}
+			continue;
+		}	
+		else
+			return false;
+	}
+	return true;
+}
+void insert(char* lex,int tk){
+	strcpy(symbol_table[++last_index].lexeme,lex);
+	symbol_table[last_index].token = tk;
+}
+int lookup(char id[]){
+	int i;
+	for (i = 0; i <= last_index; i += 1)
+		if(!strcmp(id,symbol_table[i].lexeme))
+			return symbol_table[i].token;
+	return -1;
+}

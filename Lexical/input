@@ -1,0 +1,6 @@
+void main{
+	int i;
+	if(i == 123){
+		i = 0;
+	}
+}
