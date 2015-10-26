@@ -4,8 +4,9 @@ entry symbol_table[TSIZE];
 int last_index = -1;
 char buffer[LENGTH+1];
 static char* statement;
+
 // stores lookahead token
-static entry lookahead;
+entry lookahead;
 
 // keeps track of input
 int statement_index = 0;
@@ -16,18 +17,7 @@ bool is_identifier(char ch) {
 bool is_operator(char ch) {
 	return ((ch=='+'||ch=='-'||ch=='*'||ch=='/'||ch=='%') ? true : false);
 }
-// match function
-bool match(entry tk)
-{
-	if(lookahead.token == 0)
-		lookahead = analyze();
-	return (lookahead.token == tk.token);
-}
-// update lookahead
-entry advance()
-{
-	lookahead = analyze();
-}
+
 // read statement from file (1 statement at a time)
 void inputStatement(FILE* fp, size_t size, char delimiter)
 {
@@ -68,6 +58,8 @@ entry analyze()
 {
 	entry symbol;
 	symbol.token = END;
+	
+	// found end
 	if(statement[statement_index] == '\0'){
 		symbol.lexeme[0] = '\0';
 		symbol.token = END;
@@ -87,16 +79,20 @@ entry analyze()
 		case ')':
 			symbol.lexeme[0] = statement[statement_index++];
 			symbol.lexeme[1] = '\0';
-			symbol.token = OPERATOR;
+			symbol.token = (statement[statement_index-1] == '(') ? LP : RP;
+			return symbol;
+		case '+':
+			symbol.lexeme[0] = statement[statement_index++];
+			symbol.lexeme[1] = '\0';
+			symbol.token = ADD;
+			return symbol;
+		case '*':
+			symbol.lexeme[0] = statement[statement_index++];
+			symbol.lexeme[1] = '\0';
+			symbol.token = MULT;
 			return symbol;
 		default:
 			break;
-	}
-	if(is_operator(statement[statement_index])){
-		symbol.lexeme[0] = statement[statement_index++];
-		symbol.lexeme[1] = '\0';
-		symbol.token = OPERATOR;
-		return symbol;
 	}
 
 	// found number
@@ -116,9 +112,9 @@ entry analyze()
 		
 		symbol.lexeme[j] = '\0';
 		if(lookup(symbol.lexeme) == -1){
-			insert(symbol.lexeme,CONSTANT);
+			insert(symbol.lexeme,CONSTANT_OR_IDENTIFIER);
 		}
-		symbol.token = CONSTANT;
+		symbol.token = CONSTANT_OR_IDENTIFIER;
 		return symbol;
 	}
 	// found identifier
@@ -129,14 +125,15 @@ entry analyze()
 			j++;
 			statement_index++;
 		}while(is_identifier(statement[statement_index]));
+		
 		symbol.lexeme[j] = '\0';
 		int t = lookup(symbol.lexeme);
 		if(t == -1){
-			insert(symbol.lexeme,IDENTIFIER);
+			insert(symbol.lexeme,CONSTANT_OR_IDENTIFIER);
 		}
-		else if(t == IDENTIFIER){
+		else if(t == CONSTANT_OR_IDENTIFIER){
 		}
-		symbol.token = IDENTIFIER;
+		symbol.token = CONSTANT_OR_IDENTIFIER;
 		return symbol;
 	}	
 	else

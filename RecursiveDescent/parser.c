@@ -1,23 +1,94 @@
 #include "parser_header.h"
 
+entry output[TSIZE];
+unsigned int op_index = 0;
+
 int main(){
-	// read input
-	inputStatement(stdin, CHUNK, '\n');
+	
+	inputStatement(stdin, CHUNK, '\n'); // read input
+	advance(); // move to first symbol
 	E();
+	if(!match(END)){
+		printf("\n Invalid Input\n");
+	}
+	else{
+		int i;
+		for (i = 0; i <= op_index; i += 1)
+		{
+			printf("%s ",output[i].lexeme);
+		}
+	}
+	
 	return 0;
 }
 
 void E()
 {
-	printf("%s",lookahead.token);
+//	printf("\nlookahead: %s tk: %d ",lookahead.lexeme, lookahead.token);
+	if(lookahead.token != CONSTANT_OR_IDENTIFIER && lookahead.token != LP)
+		return;
+		
+	T();
+	
+	while(match(ADD)){
+		advance();
+		T();
+		strcpy(output[op_index++].lexeme, "+");
+	}
 }
 
 void T()
 {
+//	printf("\nlookahead: %s tk: %d ",lookahead.lexeme, lookahead.token);
+	if(lookahead.token != CONSTANT_OR_IDENTIFIER && lookahead.token != LP)
+		return;
 	
+	F();
+	
+	while(match(MULT)){
+		advance();
+		F();
+		strcpy(output[op_index++].lexeme, "*");
+	}
 }
 
 void F()
 {
+//	printf("\nlookahead: %s tk: %d ",lookahead.lexeme, lookahead.token);
+	
+	if(lookahead.token != CONSTANT_OR_IDENTIFIER && lookahead.token != LP)
+		return;
+	
+	if(match(CONSTANT_OR_IDENTIFIER)){
+		strcpy(output[op_index++].lexeme, lookahead.lexeme);
+		advance();
+	}
+	else if(match(LP)){
+		//strcpy(output[op_index++].lexeme, lookahead.lexeme);
+		advance();
+		E();
+		if(match(RP)){
+			advance();
+		}
+		else
+			printf("\nERROR: mis-matched paranthesis\n");
+	}
+	else
+		printf("\n Number or Identifier expected\n");
 	
 }
+
+// match function
+bool match(int tk)
+{
+	if(lookahead.token == -1)
+		lookahead = analyze();
+	return (lookahead.token == tk);
+}
+
+// update lookahead
+void advance()
+{
+	lookahead = analyze();
+}
+

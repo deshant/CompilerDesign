@@ -17,9 +17,11 @@
 // token values
 #define END -1
 #define KEYWORD 1
-#define CONSTANT 2
-#define IDENTIFIER 3
-#define OPERATOR 4
+#define CONSTANT_OR_IDENTIFIER 2
+#define ADD 4
+#define MULT 5
+#define LP 6
+#define RP 7
 
 // struct
 typedef struct 
@@ -29,12 +31,14 @@ typedef struct
 	int symbol_value;
 }entry;
 
+extern entry lookahead;
+
 // prototypes
 void inputStatement(FILE*, size_t, char);
 entry analyze();
 void insert(char[],int);
 int lookup(char[]);
-bool match(entry);
+bool match(int);
 void advance();
 
 void E();
