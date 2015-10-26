@@ -30,7 +30,3 @@
 
 # Debug files
 *.dSYM/
-
-#temp files
-*.c~
-
